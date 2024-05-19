@@ -6,12 +6,12 @@ public class Ball extends Particle
 
    Ball(PVector s, PVector v, float m, float r, color c)
    {
-      super(s, v, m, false, false);
+      super(s, v, m, false);
 
       _r = r;
       _color = c;
    }
-   
+
    float getRadius()
    {
       return _r;

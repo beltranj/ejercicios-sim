@@ -1,13 +1,14 @@
-// Problem description: //<Flag simulation using meshes>//
-// Deformable object simulation
+/*
+ * Deformable object simulation - Mesh-ball collision
+ * Author: Jordi Beltran
+ */
+
 import peasy.*;
 
 // Display control:
-
-PeasyCam _camera;   // Mouse-driven 3D camera
+PeasyCam _camera;             // Mouse-driven 3D camera
 
 // Simulation and time control:
-
 float _timeStep;              // Simulation time-step (s)
 int _lastTimeDraw = 0;        // Last measure of time in draw() function (ms)
 float _deltaTimeDraw = 0.0;   // Time between draw() calls (s)
@@ -15,17 +16,15 @@ float _simTime = 0.0;         // Simulated time (s)
 float _elapsedTime = 0.0;     // Elapsed (real) time (s)
 
 // Output control:
-
 boolean _writeToFile = false;
 PrintWriter _output;
 
 // System variables:
-
-DeformableObject flag1, flag2, flag3;     // Deformable object
-SpringLayout _springLayout;               // Current spring layout
+DeformableObject malla;       // Deformable object
+Ball b;                       // Ball
+SpringLayout _springLayout;   // Current spring layout
 
 // Main code:
-
 void settings()
 {
    size(DISPLAY_SIZE_X, DISPLAY_SIZE_Y, P3D);
@@ -40,18 +39,12 @@ void setup()
    perspective((FOV*PI)/180, aspect, NEAR, FAR);
    _camera = new PeasyCam(this, 0);
    _camera.rotateX(-PI/2);
-   // _camera.rotateZ();
-   _camera.lookAt(-7.5, 0, 100);
-   _camera.setDistance(200);
+   _camera.setDistance(235);
 
    initSimulation();
 }
 
 void changeValues(){
-   if(isWind)
-      wind_direction.set(1,-0.5,0);
-   else
-      wind_direction.set(0,0,0);
 
    if(isGravity)
       gravity.set(0, 0, -G * PARTICLE_MASS);
@@ -71,12 +64,26 @@ void keyPressed()
 
    if (key == 'D' || key == 'd')
       DRAW_MODE = !DRAW_MODE;
-
-   if (key == 'W' || key == 'w')
-      isWind = !isWind;
    
    if (key == 'G' || key == 'g')
       isGravity = !isGravity;
+
+   if (key == 'C' || key == 'c'){
+      areClamped = !areClamped;
+      initSimulation();
+   }
+      
+   if (key == '1')
+      malla = new DeformableObject(SpringLayout.STRUCTURAL, #B2C9AB, KE_STRUCTURAL, KD_STRUCTURAL);
+
+   if (key == '2')
+      malla = new DeformableObject(SpringLayout.STRUCTURAL_AND_BEND, #B2C9AB, KE_SHEAR, KD_SHEAR);
+
+   if (key == '3')
+      malla = new DeformableObject(SpringLayout.STRUCTURAL_AND_SHEAR, #B2C9AB, KE_BEND, KD_BEND);
+
+   if (key == '4')
+      malla = new DeformableObject(SpringLayout.STRUCTURAL_AND_SHEAR_AND_BEND, #B2C9AB, KE_STRUCTURAL, KD_STRUCTURAL);
 }
 
 void initSimulation()
@@ -91,9 +98,10 @@ void initSimulation()
    _timeStep = TS*TIME_ACCEL;
    _elapsedTime = 0.0;
 
-   flag1 = new DeformableObject(SpringLayout.STRUCTURAL, #F4B9B2, KE_STRUCTURAL, KD_STRUCTURAL);
-   flag2 = new DeformableObject(SpringLayout.STRUCTURAL_AND_BEND, #DE6B48, KE_SHEAR, KD_SHEAR);
-   flag3 = new DeformableObject(SpringLayout.STRUCTURAL_AND_SHEAR, #7DBBC3, KE_BEND, KD_BEND);
+   malla = new DeformableObject(SpringLayout.STRUCTURAL, #B2C9AB, KE_STRUCTURAL, KD_STRUCTURAL);
+   b = new Ball(new PVector(N_H*D_H*0.5, N_V*D_V*0.5, -N_V*D_V*0.5), new PVector(0, 0, 0), BALL_MASS, BALL_RADIUS, BALL_COLOR);
+   
+   _camera.lookAt(b._s.x, b._s.y, b._s.z);
 }
 
 void restartSimulation(SpringLayout springLayout)
@@ -146,7 +154,7 @@ void draw()
    displayInfo();
 
    if (_writeToFile)
-      writeToFile(_simTime + "," + flag1.getNumNodes() + ", 0");
+      writeToFile(_simTime + "," + malla.getNumNodes() + ", 0");
 }
 
 void drawStaticEnvironment()
@@ -167,63 +175,16 @@ void drawStaticEnvironment()
 
 void drawDynamicEnvironment()
 {
-   stroke(10);
-   line(-120, 0, 0, -120, 0, 100 + N_V*D_V);
-   line(-30, 0, 0, -30, 0, 100 + N_V*D_V);
-   line(60, 0, 0, 60, 0, 100 + N_V*D_V);
-
-   line(0,0,0,wind_direction.x, wind_direction.y, wind_direction.z);
-
-   pushMatrix();
-   {
-      translate(-120, 0, 100+ N_V*D_V);
-      sphere(1);
-   }
-   popMatrix();
-
-   pushMatrix();
-   {
-      translate(-30, 0, 100+ N_V*D_V);
-      sphere(1);
-   }
-   popMatrix();
-
-   pushMatrix();
-   {
-      translate(60, 0, 100+ N_V*D_V);
-      sphere(1);      
-   }
-   popMatrix();
-
-   pushMatrix();
-   {
-      translate(-120, 0, 100);
-      
-      flag1.render();
-   }
-   popMatrix();
-
-   pushMatrix();
-   {
-      translate(-30, 0, 100);
-      flag2.render();
-   }
-   popMatrix();
-
-   pushMatrix();
-   {
-      translate(60, 0, 100);
-      flag3.render();
-   }
-   popMatrix();
+   b.render();
+   malla.render();
 }
 
 void updateSimulation()
 {
-   flag1.update(_timeStep);
-   flag2.update(_timeStep);
-   flag3.update(_timeStep);
-   
+   malla.update(_timeStep);
+   b.update(_timeStep);
+   malla.ballCollision(b);
+
    _simTime += _timeStep;
 }
 
@@ -240,24 +201,14 @@ void displayInfo()
       fill(0);
       textSize(20);
 
-      text("Frame rate = " + 1.0/_deltaTimeDraw + " fps", width*0.025, height*0.05);
-      text("Elapsed time = " + _elapsedTime + " s", width*0.025, height*0.075);
-      text("Simulated time = " + _simTime + " s ", width*0.025, height*0.1);
-      text("Available options: [R] to reset simulation, [D] to change the drawMode,", width*0.025, height*0.15);
-      text("[W] to toggle wind, [G] to toggle gravity", width*0.025, height*0.175);
-      text("Gravity state: " + isGravity + "  Wind state:" +  isWind + wind_direction, width*0.025, height*0.2);
-
-      fill(flag1._color);
-      text("Structure: " + flag1._springLayout, width*0.7, height*0.05);
-      text("KE: " + flag1._ke + " KD: " + flag1._kd, width*0.7, height*0.075);
-
-      fill(flag2._color);
-      text("Structure: " + flag2._springLayout, width*0.7, height*0.1);
-      text("KE: " + flag2._ke + " KD: " + flag2._kd, width*0.7, height*0.125);
-
-      fill(flag3._color);
-      text("Structure: " + flag3._springLayout, width*0.7, height*0.15);
-      text("KE: " + flag3._ke + " KD: " + flag3._kd, width*0.7, height*0.175);
+      text("Frame rate = " + 1.0/_deltaTimeDraw + " fps", width*0.025, height*0.75);
+      text("Elapsed time = " + _elapsedTime + " s", width*0.025, height*0.775);
+      text("Simulated time = " + _simTime + " s ", width*0.025, height*0.8);
+      text("Available options: [R] to reset simulation, [D] to change the drawMode, [G] to toggle gravity", width*0.025, height*0.825);
+      text("Structure type: [1] Structural, [2] Structural and Bend, [3] Structural and Shear, [4] Structural and Shear and Bend", width*0.025, height*0.85);
+      text("Gravity state: " + isGravity, width*0.025, height*0.875);
+      text("Clamped state: " + areClamped, width*0.025, height*0.9);
+      text("Using mesh structure: " + malla._springLayout, width*0.025, height*0.925);
    }
    popMatrix();
 }
